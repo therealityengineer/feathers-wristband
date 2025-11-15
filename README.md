@@ -29,7 +29,7 @@ app.use(errorHandler())
 app.use(bodyParser())
 
 wristbandKoaBridge(
-  app as any,
+  app,
   {
     clientId: process.env.WRISTBAND_CLIENT_ID!,
     clientSecret: process.env.WRISTBAND_CLIENT_SECRET!,
@@ -62,7 +62,7 @@ const authentication = new AuthenticationService(app)
 authentication.register('wristband', new WristbandJWTStrategy())
 app.use('authentication', authentication)
 
-registerWristbandService(app as any)
+registerWristbandService(app)
 
 app.use('invoices', {
   async find() {

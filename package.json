@@ -1,6 +1,6 @@
 {
   "name": "feathers-wristband",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "FeathersJS v5 service adapter for Wristband authentication with Koa transport",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
