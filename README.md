@@ -15,7 +15,7 @@ You will also need the Wristband SDK credentials for your application.
 ```ts
 import { feathers } from '@feathersjs/feathers'
 import { koa, rest, errorHandler, bodyParser } from '@feathersjs/koa'
-import { authentication } from '@feathersjs/authentication'
+import { AuthenticationService } from '@feathersjs/authentication'
 import {
   wristbandKoaBridge,
   registerWristbandService,
@@ -33,7 +33,10 @@ wristbandKoaBridge(
   {
     clientId: process.env.WRISTBAND_CLIENT_ID!,
     clientSecret: process.env.WRISTBAND_CLIENT_SECRET!,
-    wristbandApplicationVanityDomain: process.env.WRISTBAND_APPLICATION_VANITY_DOMAIN!,
+    loginStateSecret: process.env.WRISTBAND_LOGIN_STATE_SECRET!,
+    loginUrl: 'https://{tenant_domain}.example.com/auth/login',
+    redirectUri: 'https://{tenant_domain}.example.com/auth/callback',
+    wristbandApplicationDomain: process.env.WRISTBAND_APPLICATION_DOMAIN!,
     dangerouslyDisableSecureCookies: process.env.NODE_ENV !== 'production'
   },
   {
@@ -45,8 +48,19 @@ wristbandKoaBridge(
 )
 
 app.configure(rest())
-app.configure(authentication({ authStrategies: ['wristband'] }))
-app.authentication.register('wristband', new WristbandJWTStrategy())
+
+app.set('authentication', {
+  secret: process.env.AUTH_SECRET!,
+  authStrategies: ['wristband'],
+  wristband: {
+    issuer: process.env.WRISTBAND_APPLICATION_DOMAIN!,
+    audience: process.env.WRISTBAND_API_AUDIENCE
+  }
+})
+
+const authentication = new AuthenticationService(app)
+authentication.register('wristband', new WristbandJWTStrategy())
+app.use('authentication', authentication)
 
 registerWristbandService(app as any)
 
@@ -64,6 +78,15 @@ app.service('invoices').hooks({
 
 app.listen(3030)
 ```
+
+### Required environment variables
+
+- `WRISTBAND_CLIENT_ID`, `WRISTBAND_CLIENT_SECRET` – credentials from the Wristband dashboard.
+- `WRISTBAND_LOGIN_STATE_SECRET` – at least 32 characters; used to encrypt Wristband login state cookies.
+- `WRISTBAND_APPLICATION_DOMAIN` – your Wristband vanity domain (e.g. `app.your-org.us.wristband.dev`), also used as the JWT issuer.
+- `WRISTBAND_API_AUDIENCE` – optional API audience claim that the JWT strategy validates.
+- `SESSION_SECRET` – 32+ character encryption secret for `@wristband/typescript-session` cookies.
+- `AUTH_SECRET` – Feathers authentication secret used when issuing its own JWTs (even if you only rely on Wristband).
 
 ### REST endpoints
 

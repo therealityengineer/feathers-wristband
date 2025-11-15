@@ -101,38 +101,68 @@ mock('@wristband/typescript-session', {
 mock('@wristband/express-auth', {
   CallbackResultType,
   createWristbandAuth: () => ({
-    async login(_req: any, _res: any, options: any) {
+    async login(_req: any, res: any, options: any) {
       authState.lastLoginOptions = options
-      return 'https://example.com/mock-login-redirect'
+      res.redirect('https://example.com/mock-login-redirect')
     },
-    async callback(_req: any, _res: any) {
-      return authState.callbackResult
+    async callback(_req: any, res: any) {
+      if (authState.callbackResult.type === CallbackResultType.REDIRECT_REQUIRED) {
+        res.redirect(authState.callbackResult.redirectUrl)
+        return
+      }
+
+      return authState.callbackResult.callbackData
     },
-    async logout(_req: any, _res: any, options: any) {
+    async logout(_req: any, res: any, options: any) {
       authState.lastLogoutOptions = options
-      return 'https://example.com/mock-logout-redirect'
+      res.redirect('https://example.com/mock-logout-redirect')
     }
   })
 })
 
 mock('@wristband/typescript-jwt', {
-  createWristbandJwtValidator: (config: any) => {
-    return async (token: string) => {
-      if (token === 'GOOD_TOKEN') {
-        return {
-          sub: 'user-123',
-          email: 'user@example.com',
-          'wb:tenant': 'tenant-1',
-          config
+  createWristbandJwtValidator: (_config: any) => {
+    return {
+      extractBearerToken(header?: string | string[] | null) {
+        if (!header) {
+          throw new Error('Missing authorization header')
         }
-      }
 
-      if (token === 'BAD_TOKEN') {
-        throw new Error('Invalid token')
-      }
+        const value = Array.isArray(header) ? header[0] : header
 
-      return {
-        sub: 'user-generic'
+        if (typeof value !== 'string' || !value.startsWith('Bearer ')) {
+          throw new Error('Invalid authorization header')
+        }
+
+        return value.slice('Bearer '.length)
+      },
+      async validate(token: string) {
+        if (token === 'GOOD_TOKEN') {
+          return {
+            isValid: true,
+            payload: {
+              sub: 'user-123',
+              email: 'user@example.com',
+              'wb:tenant': 'tenant-1',
+              aud: 'test-audience'
+            }
+          }
+        }
+
+        if (token === 'BAD_TOKEN') {
+          return {
+            isValid: false,
+            errorMessage: 'Invalid token'
+          }
+        }
+
+        return {
+          isValid: true,
+          payload: {
+            sub: 'user-generic',
+            aud: 'test-audience'
+          }
+        }
       }
     }
   }

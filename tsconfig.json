@@ -9,7 +9,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "moduleResolution": "node",
-    "types": ["node"],
+    "types": ["node", "mocha"],
     "resolveJsonModule": true
   },
   "include": ["src"],

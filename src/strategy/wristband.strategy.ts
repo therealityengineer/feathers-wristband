@@ -3,13 +3,11 @@ import {
   type AuthenticationResult
 } from '@feathersjs/authentication'
 import type { Params } from '@feathersjs/feathers'
-import { createWristbandJwtValidator } from '@wristband/typescript-jwt'
+import { createWristbandJwtValidator, type WristbandJwtValidator } from '@wristband/typescript-jwt'
 import type { WristbandJWTConfig } from '../types'
 
-type JwtValidator = (token: string) => Promise<any>
-
 export class WristbandJWTStrategy extends AuthenticationBaseStrategy {
-  private validator?: JwtValidator
+  private validator?: WristbandJwtValidator
 
   async getConfiguration(): Promise<WristbandJWTConfig & { name: string }> {
     const base = (this.authentication?.configuration?.wristband || {}) as WristbandJWTConfig
@@ -43,12 +41,41 @@ export class WristbandJWTStrategy extends AuthenticationBaseStrategy {
 
     if (!this.validator) {
       this.validator = createWristbandJwtValidator({
-        wristbandApplicationVanityDomain: config.issuer,
-        audience: config.audience
+        wristbandApplicationVanityDomain: config.issuer
       })
     }
 
-    const claims = await this.validator(accessToken)
+    const validator = this.validator
+    if (!validator) {
+      throw Object.assign(new Error('Failed to initialize Wristband validator'), { code: 500 })
+    }
+
+    const validationResult = await validator.validate(accessToken)
+    if (!validationResult.isValid || !validationResult.payload) {
+      throw Object.assign(new Error(validationResult.errorMessage ?? 'Invalid access token'), {
+        code: 401
+      })
+    }
+
+    const claims = validationResult.payload
+
+    if (config.audience) {
+      const expectedAudiences = Array.isArray(config.audience) ? config.audience : [config.audience]
+      let tokenAudValues: string[] = []
+
+      if (Array.isArray(claims.aud)) {
+        tokenAudValues = claims.aud as string[]
+      } else if (typeof claims.aud === 'string') {
+        tokenAudValues = [claims.aud]
+      }
+
+      const audienceMatch =
+        tokenAudValues.length > 0 && tokenAudValues.some((aud) => expectedAudiences.includes(aud))
+
+      if (!audienceMatch) {
+        throw Object.assign(new Error('Invalid audience'), { code: 401 })
+      }
+    }
 
     const user = {
       sub: claims.sub,

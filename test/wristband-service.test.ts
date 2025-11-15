@@ -11,7 +11,7 @@ describe('Wristband service', () => {
   beforeEach(async () => {
     resetMockState()
     app = await createTestApp()
-    server = app.listen()
+    server = await app.listen(0)
   })
 
   afterEach(async () => {

@@ -1,7 +1,7 @@
 import type { Application, Params } from '@feathersjs/feathers'
-import { CallbackResultType } from '@wristband/express-auth'
 import {
   getKoaContext,
+  getExpressContext,
   getSessionFromParams,
   getWristbandAuthFromParams
 } from '../adapter/wristband-koa'
@@ -16,50 +16,77 @@ import { redirectAfterHook, noStoreAfterHook } from '../hooks/http-redirects'
 
 export class WristbandService {
   async login(data: LoginData, params: Params) {
-    const ctx = getKoaContext(params)
+    const loginData = data || {}
+    getKoaContext(params)
     const auth = getWristbandAuthFromParams(params)
+    const express = getExpressContext(params)
 
-    const redirectUrl: string = await auth.login(ctx.req, ctx.res, {
-      tenantName: data.tenantName,
-      tenantCustomDomain: data.tenantCustomDomain,
-      returnUrl: data.returnUrl
+    if (loginData.tenantName) {
+      express.req.query.tenant_domain = loginData.tenantName
+    }
+
+    if (loginData.returnUrl) {
+      express.req.query.return_url = loginData.returnUrl
+    }
+
+    if (loginData.tenantCustomDomain) {
+      express.req.headers.host = loginData.tenantCustomDomain
+    }
+
+    await auth.login(express.req as any, express.res as any, {
+      defaultTenantDomain: loginData.tenantName
     })
+
+    const redirectUrl = express.res.getRedirectUrl()
+    if (!redirectUrl) {
+      throw Object.assign(new Error('Login redirect missing'), { code: 500 })
+    }
 
     return { redirectUrl }
   }
 
   async callback(_data: CallbackData, params: Params) {
-    const ctx = getKoaContext(params)
+    getKoaContext(params)
     const auth = getWristbandAuthFromParams(params)
     const session = getSessionFromParams(params)
+    const express = getExpressContext(params)
 
-    const result = await auth.callback(ctx.req, ctx.res)
+    const result = await auth.callback(express.req as any, express.res as any)
 
-    if (result.type === CallbackResultType.REDIRECT_REQUIRED) {
-      return { redirectUrl: result.redirectUrl }
+    if (!result) {
+      const redirectUrl = express.res.getRedirectUrl()
+      if (!redirectUrl) {
+        throw Object.assign(new Error('Callback redirect missing'), { code: 500 })
+      }
+      return { redirectUrl }
     }
 
-    session.fromCallback(result.callbackData)
+    session.fromCallback(result)
     await session.save()
 
-    const returnUrl = result.callbackData?.returnUrl ?? '/'
+    const returnUrl = result.returnUrl ?? '/'
     return { redirectUrl: returnUrl }
   }
 
   async logout(_data: LogoutData, params: Params) {
-    const ctx = getKoaContext(params)
+    getKoaContext(params)
     const auth = getWristbandAuthFromParams(params)
     const session = getSessionFromParams(params)
+    const express = getExpressContext(params)
 
     const { refreshToken, tenantCustomDomain, tenantName } = session
 
     session.destroy()
 
-    const redirectUrl: string = await auth.logout(ctx.req, ctx.res, {
+    await auth.logout(express.req as any, express.res as any, {
       refreshToken,
-      tenantCustomDomain,
-      tenantName
+      tenantDomainName: tenantCustomDomain ?? tenantName
     })
+
+    const redirectUrl = express.res.getRedirectUrl()
+    if (!redirectUrl) {
+      throw Object.assign(new Error('Logout redirect missing'), { code: 500 })
+    }
 
     return { redirectUrl }
   }
@@ -78,12 +105,16 @@ export class WristbandService {
 export function registerWristbandService(app: Application) {
   const service = new WristbandService()
 
-  app.use('auth/wristband', service, {
-    methods: ['login', 'callback', 'logout', 'session', 'token'],
-    events: []
-  })
+  app.use(
+    'auth/wristband',
+    service as any,
+    {
+      methods: ['login', 'callback', 'logout', 'session', 'token'],
+      events: []
+    } as any
+  )
 
-  const wristbandService = app.service('auth/wristband')
+  const wristbandService = app.service('auth/wristband') as any
 
   wristbandService.hooks({
     before: {},

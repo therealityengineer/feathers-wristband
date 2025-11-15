@@ -1,9 +1,6 @@
-export type WristbandAuthConfig = {
-  clientId: string
-  clientSecret: string
-  wristbandApplicationVanityDomain: string
-  dangerouslyDisableSecureCookies?: boolean
-}
+import type { AuthConfig } from '@wristband/express-auth'
+
+export type WristbandAuthConfig = AuthConfig
 
 export type WristbandSessionConfig = {
   secrets: string | string[]

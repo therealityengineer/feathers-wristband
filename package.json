@@ -22,11 +22,15 @@
     "@feathersjs/feathers": "^5.0.0",
     "@feathersjs/koa": "^5.0.0",
     "@wristband/express-auth": "^1.0.0",
-    "@wristband/typescript-jwt": "^1.0.0",
-    "@wristband/typescript-session": "^1.0.0",
+    "@wristband/typescript-jwt": "^0.1.0",
+    "@wristband/typescript-session": "^0.1.0",
     "koa": "^2.14.2"
   },
   "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/mock-require": "^3.0.0",
+    "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "chai": "^4.3.7",

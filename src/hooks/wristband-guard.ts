@@ -24,7 +24,7 @@ export const wristbandGuard =
 
     if (authHeader?.startsWith(BEARER_PREFIX)) {
       const accessToken = authHeader.slice(BEARER_PREFIX.length)
-      const authService = app.service('authentication') as AuthenticationService | undefined
+      const authService = app.service('authentication') as unknown as AuthenticationService | undefined
 
       if (!authService || typeof authService.authenticate !== 'function') {
         throw createHttpError('Authentication service not available', 500)
